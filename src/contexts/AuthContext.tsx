@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useState } from 'react'
+import { createContext, ReactNode, useState, useEffect } from 'react'
 import {destroyCookie, setCookie, parseCookies} from 'nookies'  //Deletar o Cookies
 import Router from 'next/router'  // Fazer rotiamento, mandar o usuario pra uma rota
 import { api } from '../services/apiClient';
@@ -50,6 +50,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<UserProps>()
     const isAuthenticated = !!user
 
+    useEffect(()=>{  //Buscando informações do usuario sempre que ele sair da tela de pesquisa
+        // Tentar pegar algo no cookie, que é o token
+        const { '@nextauth.token': token } = parseCookies()
+
+        if(token){
+            api.get('/me').then(response =>{
+                const {id, name, email} = response.data; // Pegando os valores
+                setUser({
+                    id,
+                    name,
+                    email
+                })
+            })
+            .catch(()=>{
+                //Se deu errom deslogamos o user
+                signOut()
+            })
+        }
+    },[])
+
     async function signIn({ email, password }: SignInProps) { //Logando usuario
         try{
             const response = await api.post('/session', {
@@ -58,7 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             })
             // console.log(response.data)
             const {id, name, token} = response.data
-            setCookie(undefined, '@nextauth.token', token, {
+            setCookie(undefined, '@nextauth.token', token, {  // @nextauth.token É O NOME DO TOKEN, ESTIVER USANDO ESTOU ME REFIRANDO AO TOKEN
                 maxAge: 60 * 60 *24 *30, // Expirar em um mes
                 path: "/" //Quais caminhos terao acesso ao cookie
             })
